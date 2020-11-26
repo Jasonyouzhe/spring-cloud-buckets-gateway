@@ -1,0 +1,67 @@
+server:
+  port: 8764
+
+spring:
+  application:
+    name: eureka-client-test
+eureka:
+  instance:
+    #以IP地址注册到服务中心，相互注册使用IP地址
+    preferIpAddress: true
+    instance-id: 192.168.8.148:8762
+  client:
+    #eureka server注册中心的地址
+    serviceUrl:
+      defaultZone: http://192.168.8.148:8761/eureka/
+
+# 设置 feign 客户端超时时间（OpenFeign 默认支持 ribbon）
+# 用注解@FeignClient的name属性设置服务名时，需要配置ReadTimeout和ConnectionTimeout
+ribbon:
+  OkToRetryOnAllOperations: true #对所有操作请求都进行重试,默认false
+  ReadTimeout: 6000   #负载均衡超时时间，默认值5000
+  ConnectTimeout: 6000 #ribbon请求连接的超时时间，默认值2000
+  MaxAutoRetries: 3    #对当前实例的重试次数，默认0
+  MaxAutoRetriesNextServer: 0 #对切换实例的重试次数，默认1
+
+#注重点：所以hystrix的超时时间要大于 (1 + MaxAutoRetries + MaxAutoRetriesNextServer) * ReadTimeout 比较好，具体看需求进行配置。
+
+#开启Hystrix断路器
+feign:
+  hystrix:
+    enabled: true
+# feignclient 熔断机制，不需要修改
+hystrix:
+  threadpool:
+    default:
+      coreSize: 5 #线程池核心线程数 默认为10
+      maxQueueSize: 50 #BlockingQueue的最大队列数，默认值-1
+      queueSizeRejectionThreshold: 50 #queueSizeRejectionThreshold该值后，请求也会被拒绝，默认值5
+  command:
+    default:  #default全局有效，service id指定应用有效
+      execution:
+        timeout:
+          #是否开启超时熔断
+          enabled: true
+        isolation:
+          thread:
+            #超时时间（默认1000ms）在调用方配置，被该调用方的所有方法的超时时间都是该值，优先级低于下边的HystrixCommandKey配置
+            timeoutInMilliseconds: 6000
+      #circuitBreaker里的3个参数放在一起，所表达的意思就是：
+      # 每当20个请求中，有50%失败时，熔断器就会打开，此时再调用此服务，将会直接返回失败，不再调远程服务。直到5s钟之后，重新检测该触发条件，判断是否把熔断器关闭，或者继续打开。
+      circuitBreaker:
+        requestVolumeThreshold: 20 #10s内请求失败数量达到20个，断路器开。  当在配置时间窗口内达到此数量的失败后，进行短路。默认20个
+        sleepWindowInMilliseconds: 5 #短路多久以后开始尝试是否恢复，默认5s
+        errorThresholdPercentage:  50% #出错百分比阈值，当达到此阈值后，开始短路。默认50%
+      fallback:
+        isolation:
+          semaphore:
+            #调用线程允许请求HystrixCommand.GetFallback()的最大数量，默认10。超出时将会有异常抛出，注意：该项配置对于THREAD隔离模式也起作用
+            maxConcurrentRequests: 50000
+    #在调用方配置，被该调用方的指定方法（HystrixCommandKey方法名）的超时时间是该值 此配置跟注解@HystrixCommand搭配使用
+    userGetKey:
+      execution:
+        isolation:
+          thread:
+            timeoutInMilliseconds: 10000
+    # 这个配置可以使用在@FeignClient的fallbackFactory
+    EkaFeignService#test(String).execution.isolation.thread.timeoutInMilliseconds: 6000

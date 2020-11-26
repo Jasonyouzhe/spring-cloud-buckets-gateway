@@ -1,0 +1,15 @@
+server:
+  port: 8764
+
+spring:
+  application:
+    name: eureka-gateway
+eureka:
+  instance:
+    #以IP地址注册到服务中心，相互注册使用IP地址
+    preferIpAddress: true
+    instance-id: 192.168.8.148:8764
+  client:
+    #eureka server注册中心的地址
+    serviceUrl:
+      defaultZone: http://192.168.8.148:8761/eureka/
